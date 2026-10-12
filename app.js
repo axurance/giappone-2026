@@ -96,14 +96,6 @@ const FRASI_GRUPOS = [
   ] }
 ];
 
-const EMERGENZE = [
-  ['Polizia', '110'],
-  ['Ambulanza / Vigili del fuoco', '119'],
-  ['Assistenza turistica JNTO (multilingue)', '050-3816-2787 (verificare prima della partenza)'],
-  ['Assicurazione viaggio', 'inserire il numero di polizza'],
-  ['Ambasciata / Consolato d\'Italia a Tokyo', 'cercare il numero ufficiale prima della partenza']
-];
-
 const PARADA_TIPOS = {
   hotel: ['🏨', '#ece6f8', 'Hotel'],
   pasto: ['🍽️', '#ffe0d6', 'Pasto'],
@@ -119,25 +111,22 @@ const PARADA_TIPOS = {
 };
 
 function tipoParada(p) {
+  const re = k => new RegExp(PAROLE[k], 'i');
   const reglas = [
-    ['hotel', /Hotel|Onsen|Ryokan/i],
-    ['pasto', /^(Cena|Pranzo|Colazione)/i],
-    ['volo', /Airport|Aeroporto|Narita|Kansai|\bMAD\b|\bPVG\b|\bKIX\b|\bNRT\b|Volo/i],
-    ['trasferta', /Station|Stazione|OCAT/i],
-    ['santuario', /Torii|Inari|Shrine|Jingu|Taisha|jinja|Toshogu|Yasaka|Futarasan|Heiwa/i],
-    ['tempio', /Tempio|Templo|-ji|dera|Todai|Senso|Rinno|Nigatsudo|Kofuku|Hozenji|Sanjusangen/i],
-    ['castello', /Castello|Castle|Nijo/i],
-    ['parco', /Park|Bamboo|Bambu|Ryoan|Tenryu|Shinobazu|Lago|\bAshi\b/i],
-    ['shopping', /Market|Ameyoko|Nishiki|Takeshita|Pok|Teramachi|Shinkyogoku|Dotonbori/i],
-    ['quartiere', /Passeg|Crossing|Dori|Canal|Bridge|Ponte|Gion|Sannenzaka|Naramachi|Akihabara|Shibuya|Harajuku|Omotesando|Shinjuku|Asakusa|Kaminarimon|Midosuji|Pontocho|Shinsaibashi|Moto|Kawaramachi|Shijo|Hanamikoji/i]
+    ['hotel', re('hotel')],
+    ['pasto', re('pasto')],
+    ['volo', re('volo')],
+    ['trasferta', re('trasferta')],
+    ['santuario', re('santuario')],
+    ['tempio', re('tempio')],
+    ['castello', re('castello')],
+    ['parco', re('parco')],
+    ['shopping', re('shopping')],
+    ['quartiere', re('quartiere')]
   ];
   const r = reglas.find(([, re]) => re.test(p));
   return r ? r[0] : 'altro';
 }
-
-const NOTA_ETIQUETA = {
-  '13:20-14:30': 'Orario di arrivo 13:20–14:30: sbarco, immigrazione e ritiro bagagli'
-};
 
 let PASTI = [];
 let RUTAS = [];
@@ -151,6 +140,12 @@ let LUOGHI_METEO = {};
 let METEO_MEDIA = {};
 let ICONO_TIPICO = {};
 let SECCIONES_CHECK = [];
+let FECHAS = [];
+let NOTA_ETIQUETA = {};
+let EMERGENZE = [];
+let PAROLE = {};
+let COUNTDOWN = { partenza: '', rientro: '' };
+let CAL = { anno: 0, mese: 0, giorni: 31 };
 let PERSONALE = { passeggeri: '', preventivo: '' };
 
 function DATA_PASTI() {
@@ -205,13 +200,13 @@ const TIPOS = {
 };
 
 function tipoAct(it) {
-  const t = it.titulo + ' ' + (it.descripcion || '');
+  const P = k => new RegExp(PAROLE[k], 'i');
   let tipo = 'altro';
-  if (/^(Colazione|Pranzo|Cena)/i.test(it.titulo)) tipo = 'pasto';
-  else if (/passegg|paseggi|passeg/i.test(it.titulo)) tipo = 'paseo';
-  else if (/Check|Riposo|Pausa|Rientro in (hotel|camera)|Pernottamento|Arrivo (in|al) hotel|Deposito|Onsen|Bagno|Preparazione/i.test(it.titulo)) tipo = 'hotel';
-  else if (/Visita|Tempio|Templio|Santuario|Castello|Shrine|Park|Kaminarimon|Senso|Todai|Pok|Nigatsudo|Kiyomizu|Sanjusangen|Nijo|Kinkaku|Ryoan|Kasuga|Inari|Tenryu|Bamboo|Sannenzaka|Gion|Pontocho|Dotonbori|Shinsaibashi|Nishiki|Teramachi|Yasaka|Canal|Ponte|Bridge|Ameyoko|Akihabara|Shibuya|Harajuku|Omotesando|Takeshita|Shinjuku|Asakusa|Ueno Park|Hakone|Nikko|Nara|Arashiyama|Naramachi|Kofuku|Meiji|Heiwa|Crossing|Hozenji|Hachiko/i.test(it.titulo)) tipo = 'visita';
-  else if (/Treno|Metro|Taxi|Bus|Shinkansen|Trasferimento|Spostamento|Uscita|Partenza|Arrivo|Volo|Aeroporto|Narita|Stazione|Station|Odawara|Keisei|Skyliner|Gate|Imbarco|Tragitto|Ritorno|Cambio|Attesa|Raggiungimento|Yamanote|Ginza|Tozan|Consegna|Controlli/i.test(it.titulo)) tipo = 'transporte';
+  if (P('actPasto').test(it.titulo)) tipo = 'pasto';
+  else if (P('actPaseo').test(it.titulo)) tipo = 'paseo';
+  else if (P('actHotel').test(it.titulo)) tipo = 'hotel';
+  else if (P('actVisita').test(it.titulo)) tipo = 'visita';
+  else if (P('actTrasporto').test(it.titulo)) tipo = 'transporte';
   return { icon: TIPOS[tipo][0], label: TIPOS[tipo][1], tipo, imp: /jrp|japan rail|scadenz|occhio/i.test(it.titulo) };
 }
 let guardarTimer = null;
@@ -234,6 +229,12 @@ function aplicarContenido(c) {
   LUOGHI_METEO = c.luoghiMeteo;
   METEO_MEDIA = c.meteoMedia;
   ICONO_TIPICO = c.iconoTipico;
+  FECHAS = c.fechas;
+  NOTA_ETIQUETA = c.notaEtichette;
+  EMERGENZE = c.emergenze;
+  PAROLE = c.parole;
+  COUNTDOWN = c.countdown;
+  CAL = c.calendarioMese;
   PERSONALE = c.personale;
   SECCIONES_CHECK = CHECK.map((s, i) => ({ id: 'c' + i, titulo: s.titulo, base: s.items.map((t, j) => ({ k: 'c-' + i + '-' + j, t })) }))
     .concat((c.checkExtra || []).map(x => ({ id: x.id, titulo: x.titolo, base: [] })));
@@ -255,7 +256,6 @@ function partesTitolo(t) {
   return { fecha: p[0], sub: sentenza(p.slice(1).join(' · ')) };
 }
 
-const FECHAS = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13'];
 let METEO = {};
 
 async function cargarMeteo() {
@@ -284,10 +284,10 @@ function iconoMeteo(codice) {
 
 function meteoDia(i) {
   const c = CITTA_DIA[i];
-  if (c === 'Viaggio') return '✈️ Giorno di viaggio: il meteo conta per l\'arrivo a Osaka (vedi 3 novembre)';
+  if (c === 'Viaggio') return '✈️ Giorno di viaggio: il meteo conta per il giorno d\'arrivo (vedi il giorno seguente)';
   const p = (METEO[c] || []).find(x => x.f === FECHAS[i]);
   if (p) return `${iconoMeteo(p.codice)} · ${c}: ${Math.round(p.min)}° / ${Math.round(p.max)}° · pioggia ${p.pioggia ?? '—'}%`;
-  return `${ICONO_TIPICO[c]} ${c}: di solito a novembre ${METEO_MEDIA[c]} (la previsione compare circa 16 giorni prima)`;
+  return `${ICONO_TIPICO[c]} ${c}: di solito in questo periodo ${METEO_MEDIA[c]} (la previsione compare circa 16 giorni prima)`;
 }
 
 let dbP;
@@ -368,11 +368,16 @@ function actualizarTasso() {
     .catch(() => {});
 }
 
+const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+const MESI_B = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+
 function cuentaHTML() {
+  if (!COUNTDOWN.partenza) return '';
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
-  const ida = new Date(2026, 10, 3);
-  const vuelta = new Date(2026, 10, 12);
+  const aFecha = s => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
+  const ida = aFecha(COUNTDOWN.partenza);
+  const vuelta = aFecha(COUNTDOWN.rientro);
   const dias = d => Math.round((d - hoy) / 86400000);
   if (hoy < ida) return `✈️ Partenza tra <b>${dias(ida)}</b> giorni`;
   if (hoy.getTime() === ida.getTime()) return '✈️ Oggi si parte!';
@@ -496,7 +501,7 @@ function dias() {
 
 function DIA_CORTO(i) {
   const t = DATA.dias[i] && DATA.dias[i].titulo;
-  return `${FECHAS[i].slice(8)} nov · ${t ? partesTitolo(t).sub : ''}`;
+  return `${FECHAS[i].slice(8)} ${MESI_B[CAL.mese]} · ${t ? partesTitolo(t).sub : ''}`;
 }
 
 function lugares() {
@@ -537,7 +542,7 @@ function lugares() {
     <h3>Aggiungi ristorante</h3>
     <form class="nuevo" data-form="rest">
       <input type="text" name="nombre" placeholder="Nome del ristorante" required>
-      <input type="text" name="zona" placeholder="Zona (es. Pontocho, Kyoto)">
+      <input type="text" name="zona" placeholder="Zona (es. quartiere, città)">
       <select name="dia"><option value="">Nessun giorno</option>${opciones}</select>
       <input type="text" name="nota" placeholder="Nota (es. prenotare, cosa ordinare)">
       <input type="text" name="mapa" placeholder="Link Google Maps (facoltativo)">
@@ -595,7 +600,7 @@ function vestOutfit() {
   return `
     <h3>Crea un outfit</h3>
     <form class="nuevo" data-form="outfit">
-      <input type="text" name="nome" placeholder="Es. Kyoto freddo" required>
+      <input type="text" name="nome" placeholder="Es. giornata fredda" required>
       ${checks}
       <button class="boton">Salva outfit</button>
     </form>
@@ -666,10 +671,11 @@ function frasi() {
 
 function calendario() {
   const iniciales = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-  const offset = (new Date(2026, 10, 1).getDay() + 6) % 7;
+  const offset = (new Date(CAL.anno, CAL.mese, 1).getDay() + 6) % 7;
+  const pref = CAL.anno + '-' + String(CAL.mese + 1).padStart(2, '0') + '-';
   let celdas = '<div></div>'.repeat(offset);
-  for (let d = 1; d <= 30; d++) {
-    const i = FECHAS.indexOf(`2026-11-${String(d).padStart(2, '0')}`);
+  for (let d = 1; d <= CAL.giorni; d++) {
+    const i = FECHAS.indexOf(pref + String(d).padStart(2, '0'));
 
     if (i >= 0) {
       const c = CITTA_DIA[i];
@@ -680,12 +686,12 @@ function calendario() {
   }
   return `
     <h2>🗓️ Calendario</h2>
-    <p class="dato">Novembre 2026 · tocca un giorno per aprirne il programma</p>
+    <p class="dato">${MESI[CAL.mese][0].toUpperCase() + MESI[CAL.mese].slice(1)} ${CAL.anno} · tocca un giorno per aprirne il programma</p>
     <div class="cal-grid">${iniciales.map(x => `<div class="cal-h">${x}</div>`).join('')}${celdas}</div>
     <div class="pills">${Object.entries(COLORI_CITTA).map(([c, col]) => `<span class="leyenda" style="background:${col};color:#fff">${c}</span>`).join('')}</div>
     <h3>Agenda</h3>
     ${DATA.dias.map((d, i) => `<div class="card">
-      <b>${FECHAS[i].slice(8)} nov · ${CITTA_DIA[i]}</b> <span class="sub">${d.items.length} attività</span>
+      <b>${FECHAS[i].slice(8)} ${MESI_B[CAL.mese]} · ${CITTA_DIA[i]}</b> <span class="sub">${d.items.length} attività</span>
       <p class="det">${esc(d.items.slice(0, 3).map(it => (it.hora ? it.hora + ' ' : '') + it.titulo).join(' · '))}</p>
     </div>`).join('')}`;
 }
