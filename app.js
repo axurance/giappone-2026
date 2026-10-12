@@ -984,6 +984,8 @@ function iniciarSync() {
         localStorage.setItem(KEY, JSON.stringify(S));
         syncListo = true;
         render(false);
+      }, err => {
+        if (String((err && err.code) || err).includes('permission-denied')) { ACCESO_NEGADO = true; render(true); }
       });
       actualizarTasso();
       cargarMeteo();
@@ -995,3 +997,9 @@ if (cargarContenidoLocal()) { actualizarTasso(); cargarMeteo(); }
 render(true);
 window.addEventListener('sync-listo', iniciarSync);
 if (window.SYNC) iniciarSync();
+setTimeout(() => {
+  if (!window.SYNC) {
+    const el = document.getElementById('estado-sync');
+    if (el) el.textContent = 'Non riesco a caricare il sistema di accesso. Controlla la connessione e ricarica la pagina.';
+  }
+}, 6000);
